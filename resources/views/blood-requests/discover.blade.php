@@ -54,223 +54,6 @@
 
 
             {{-- =========================================================
-            YOUR REQUESTS
-            ========================================================== --}}
-            <!-- 
-            <section class="mb-10">
-
-                <div class="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-
-                    <div>
-
-                        <p class="text-xs font-semibold uppercase tracking-[0.12em] text-red-600">
-                            Your Activity
-                        </p>
-
-                        <h2 class="mt-1 text-2xl font-bold tracking-tight text-slate-950">
-                            Your Requests
-                        </h2>
-
-                        <p class="mt-1 text-sm text-slate-500">
-                            Active blood requests created by you.
-                        </p>
-
-                    </div>
-
-                    <a
-                        href="{{ route('blood-requests.index') }}"
-                        class="text-sm font-semibold text-slate-700 transition hover:text-red-600"
-                    >
-                        View All My Requests
-                    </a>
-
-                </div>
-
-
-                @if ($myRequests->count())
-
-                    <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-
-                        @foreach ($myRequests as $bloodRequest)
-
-                            @php
-
-                                $remainingQuantity = $bloodRequest->remaining_quantity;
-
-                                $urgencyClasses = match ($bloodRequest->urgency) {
-
-                                    'critical' =>
-                                        'bg-red-50 text-red-700 border-red-200',
-
-                                    'urgent' =>
-                                        'bg-amber-50 text-amber-700 border-amber-200',
-
-                                    default =>
-                                        'bg-slate-100 text-slate-600 border-slate-200',
-
-                                };
-
-                            @endphp
-
-
-                            <article class="overflow-hidden rounded-2xl border border-red-100 bg-white shadow-sm">
-
-                                {{-- Request Header --}}
-
-                                <div class="border-b border-slate-100 p-5">
-
-                                    <div class="flex items-start justify-between gap-4">
-
-                                        <div>
-
-                                            <p class="text-xs font-semibold uppercase tracking-[0.12em] text-red-600">
-                                                Your Request
-                                            </p>
-
-                                            <h3 class="mt-2 text-3xl font-bold text-red-600">
-                                                {{ $bloodRequest->bloodGroup->name }}
-                                            </h3>
-
-                                        </div>
-
-                                        <span
-                                            class="rounded-full border px-3 py-1.5 text-xs font-semibold {{ $urgencyClasses }}"
-                                        >
-                                            {{ ucfirst($bloodRequest->urgency) }}
-                                        </span>
-
-                                    </div>
-
-                                </div>
-
-
-                                {{-- Request Information --}}
-
-                                <div class="p-5">
-
-                                    <div class="space-y-4">
-
-                                        <div class="flex items-center justify-between">
-
-                                            <span class="text-sm text-slate-500">
-                                                Required
-                                            </span>
-
-                                            <span class="text-sm font-semibold text-slate-900">
-                                                {{ $bloodRequest->required_quantity }}
-                                                {{ Str::plural('unit', $bloodRequest->required_quantity) }}
-                                            </span>
-
-                                        </div>
-
-
-                                        <div class="flex items-center justify-between">
-
-                                            <span class="text-sm text-slate-500">
-                                                Remaining
-                                            </span>
-
-                                            <span class="text-sm font-semibold text-red-600">
-                                                {{ $remainingQuantity }}
-                                                {{ Str::plural('unit', $remainingQuantity) }}
-                                            </span>
-
-                                        </div>
-
-
-                                        <div class="flex items-center justify-between">
-
-                                            <span class="text-sm text-slate-500">
-                                                Required date
-                                            </span>
-
-                                            <span class="text-sm font-semibold text-slate-900">
-                                                {{ $bloodRequest->required_date->format('d M Y') }}
-                                            </span>
-
-                                        </div>
-
-
-                                        <div>
-
-                                            <p class="text-sm text-slate-500">
-                                                Location
-                                            </p>
-
-                                            <p class="mt-1 text-sm font-semibold text-slate-900">
-                                                {{ $bloodRequest->locality }},
-                                                {{ $bloodRequest->region }}
-                                            </p>
-
-                                        </div>
-
-                                    </div>
-
-
-                                    <div class="mt-6 border-t border-slate-100 pt-5">
-
-                                        <a
-                                            href="{{ route('blood-requests.show', $bloodRequest) }}"
-                                            class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-                                        >
-
-                                            Manage Request
-
-                                            <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                fill="none"
-                                                viewBox="0 0 24 24"
-                                                stroke-width="1.8"
-                                                stroke="currentColor"
-                                                class="h-4 w-4"
-                                            >
-                                                <path
-                                                    stroke-linecap="round"
-                                                    stroke-linejoin="round"
-                                                    d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"
-                                                />
-                                            </svg>
-
-                                        </a>
-
-                                    </div>
-
-                                </div>
-
-                            </article>
-
-                        @endforeach
-
-                    </div>
-
-                @else
-
-                    <div class="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-10 text-center">
-
-                        <h3 class="text-sm font-semibold text-slate-800">
-                            You have no active blood requests
-                        </h3>
-
-                        <p class="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-                            If you need blood, create a request and the Mission Red community
-                            will be able to discover it.
-                        </p>
-
-                        <a
-                            href="{{ route('blood-requests.create') }}"
-                            class="mt-5 inline-flex items-center justify-center rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-700"
-                        >
-                            Create Blood Request
-                        </a>
-
-                    </div>
-
-                @endif
-
-            </section> -->
-
-
-            {{-- =========================================================
             COMMUNITY REQUESTS
             ========================================================== --}}
 
@@ -313,8 +96,7 @@
                     </div>
 
 
-                    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-
+                  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
                         {{-- Blood Group --}}
 
                         <div>
@@ -403,7 +185,53 @@
                                 class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-red-500 focus:ring-2 focus:ring-red-100">
 
                         </div>
+{{-- Radius --}}
+<div>
 
+    <label
+        for="radius"
+        class="mb-2 block text-sm font-medium text-slate-700"
+    >
+        Distance
+    </label>
+
+    <select
+        id="radius"
+        name="radius"
+        class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-100"
+    >
+
+        <option value="2" @selected(request('radius', '10') === '2')>
+            Within 2 km
+        </option>
+
+        <option value="5" @selected(request('radius', '10') === '5')>
+            Within 5 km
+        </option>
+
+        <option value="10" @selected(request('radius', '10') === '10')>
+            Within 10 km
+        </option>
+
+        <option value="25" @selected(request('radius', '10') === '25')>
+            Within 25 km
+        </option>
+
+        <option value="50" @selected(request('radius', '10') === '50')>
+            Within 50 km
+        </option>
+
+        <option value="100" @selected(request('radius', '10') === '100')>
+            Within 100 km
+        </option>
+
+        <option value="all" @selected(request('radius', '10') === 'all')>
+            All distances
+        </option>
+
+    </select>
+
+</div>
                     </div>
 
 
@@ -428,21 +256,31 @@
                 RESULTS HEADER
                 ========================================================== --}}
 
-                <div class="mb-5 flex items-center justify-between">
+                <div>
 
-                    <p class="text-sm text-slate-500">
+    <p class="text-sm text-slate-500">
 
-                        Showing
+        Showing
 
-                        <span class="font-semibold text-slate-800">
-                            {{ $communityRequests->total() }}
-                        </span>
+        <span class="font-semibold text-slate-800">
+            {{ $communityRequests->total() }}
+        </span>
 
-                        community requests
+        community requests
 
-                    </p>
+    </p>
 
-                </div>
+    @if (request('radius', '10') !== 'all')
+        <p class="mt-1 text-xs text-slate-400">
+            Within {{ request('radius', '10') }} km of your location
+        </p>
+    @else
+        <p class="mt-1 text-xs text-slate-400">
+            Showing requests at all distances
+        </p>
+    @endif
+
+</div>
 
 
                 {{-- =========================================================
@@ -553,20 +391,26 @@
                                         </div>
 
 
-                                        {{-- Location --}}
+{{-- Location --}}
+<div>
 
-                                        <div>
+    <p class="text-sm text-slate-500">
+        Location
+    </p>
 
-                                            <p class="text-sm text-slate-500">
-                                                Location
-                                            </p>
+    <p class="mt-1 text-sm font-semibold text-slate-900">
+        {{ $bloodRequest->location?->locality ?? $bloodRequest->locality }},
+        {{ $bloodRequest->location?->city ?? $bloodRequest->region }}
+    </p>
 
-                                            <p class="mt-1 text-sm font-semibold text-slate-900">
-                                                {{ $bloodRequest->locality }},
-                                                {{ $bloodRequest->region }}
-                                            </p>
+    @if (isset($bloodRequest->distance_km))
+        <p class="mt-1 text-xs font-medium text-slate-500">
+            {{ number_format((float) $bloodRequest->distance_km, 2) }}
+            km away
+        </p>
+    @endif
 
-                                        </div>
+</div>
 
                                     </div>
 

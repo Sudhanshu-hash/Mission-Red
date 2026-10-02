@@ -188,51 +188,155 @@
             </div>
 
 
-            {{-- Region --}}
-            <div class="mt-6">
+            {{-- Blood location --}}
+<div class="mt-8">
 
-                <label
-                    for="region"
-                    class="text-sm font-semibold text-slate-800"
-                >
-                    Region
-                </label>
+    <div class="mb-6">
 
-                <input
-                    id="region"
-                    type="text"
-                    name="region"
-                    required
-                    maxlength="100"
-                    value="{{ old('region', $bloodRequest->region) }}"
-                    class="mt-2 block w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:border-red-500 focus:ring-red-500"
-                >
+        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+            Blood location
+        </p>
 
-            </div>
+        <h2 class="mt-1.5 text-lg font-semibold text-slate-950">
+            Where is blood needed?
+        </h2>
+
+        <p class="mt-2 text-sm leading-6 text-slate-500">
+            Update the general area where blood is needed.
+            Your exact address is not required or displayed publicly.
+        </p>
+
+    </div>
 
 
-            {{-- Locality --}}
-            <div class="mt-6">
+    <div class="grid gap-6 sm:grid-cols-2">
 
-                <label
-                    for="locality"
-                    class="text-sm font-semibold text-slate-800"
-                >
-                    Locality
-                </label>
+        {{-- State --}}
+        <div>
 
-                <input
-                    id="locality"
-                    type="text"
-                    name="locality"
-                    required
-                    maxlength="150"
-                    value="{{ old('locality', $bloodRequest->locality) }}"
-                    class="mt-2 block w-full rounded-xl border border-slate-300 px-4 py-3 text-sm focus:border-red-500 focus:ring-red-500"
-                >
+            <label
+                for="state"
+                class="mb-2 block text-sm font-semibold text-slate-800"
+            >
+                State
+                <span class="text-red-600">*</span>
+            </label>
 
-            </div>
+            <input
+                id="state"
+                type="text"
+                name="state"
+                value="{{ old('state', $bloodRequest->location?->state ?? $bloodRequest->region) }}"
+                maxlength="100"
+                placeholder="e.g. Delhi"
+                required
+                class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-100"
+            >
 
+            @error('state')
+                <p class="mt-2 text-sm text-red-600">
+                    {{ $message }}
+                </p>
+            @enderror
+
+        </div>
+
+
+        {{-- City --}}
+        <div>
+
+            <label
+                for="city"
+                class="mb-2 block text-sm font-semibold text-slate-800"
+            >
+                City
+                <span class="text-red-600">*</span>
+            </label>
+
+            <input
+                id="city"
+                type="text"
+                name="city"
+                value="{{ old('city', $bloodRequest->location?->city) }}"
+                maxlength="100"
+                placeholder="e.g. New Delhi"
+                required
+                class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-100"
+            >
+
+            @error('city')
+                <p class="mt-2 text-sm text-red-600">
+                    {{ $message }}
+                </p>
+            @enderror
+
+        </div>
+
+
+        {{-- Locality --}}
+        <div>
+
+            <label
+                for="locality"
+                class="mb-2 block text-sm font-semibold text-slate-800"
+            >
+                Locality
+                <span class="text-red-600">*</span>
+            </label>
+
+            <input
+                id="locality"
+                type="text"
+                name="locality"
+                value="{{ old('locality', $bloodRequest->location?->locality ?? $bloodRequest->locality) }}"
+                maxlength="150"
+                placeholder="e.g. Laxmi Nagar"
+                required
+                class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-100"
+            >
+
+            @error('locality')
+                <p class="mt-2 text-sm text-red-600">
+                    {{ $message }}
+                </p>
+            @enderror
+
+        </div>
+
+
+        {{-- Pincode --}}
+        <div>
+
+            <label
+                for="pincode"
+                class="mb-2 block text-sm font-semibold text-slate-800"
+            >
+                Pincode
+                <span class="text-slate-400">(optional)</span>
+            </label>
+
+            <input
+                id="pincode"
+                type="text"
+                name="pincode"
+                value="{{ old('pincode', $bloodRequest->location?->pincode) }}"
+                maxlength="10"
+                inputmode="numeric"
+                placeholder="e.g. 110092"
+                class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-100"
+            >
+
+            @error('pincode')
+                <p class="mt-2 text-sm text-red-600">
+                    {{ $message }}
+                </p>
+            @enderror
+
+        </div>
+
+    </div>
+
+</div>
 
             {{-- Actions --}}
             <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-end">
