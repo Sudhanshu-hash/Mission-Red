@@ -303,95 +303,153 @@
                 <div class="my-10 border-t border-slate-100"></div>
 
 
-                {{-- =====================================================
-                    LOCATION
-                ====================================================== --}}
-                <div>
+              {{-- =====================================================
+    LOCATION
+====================================================== --}}
+<div>
 
-                    <div class="mb-6">
+    <div class="mb-6">
 
-                        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                            Approximate location
-                        </p>
+        <p class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+            Blood location
+        </p>
 
-                        <h2 class="mt-1.5 text-lg font-semibold text-slate-950">
-                            Where is blood needed?
-                        </h2>
+        <h2 class="mt-1.5 text-lg font-semibold text-slate-950">
+            Where is blood needed?
+        </h2>
 
-                        <p class="mt-2 text-sm leading-6 text-slate-500">
-                            Enter only your region and locality. Do not enter
-                            your home address.
-                        </p>
+        <p class="mt-2 text-sm leading-6 text-slate-500">
+            Enter the general area where blood is needed. Your exact address
+            is not required or displayed publicly.
+        </p>
 
-                    </div>
+    </div>
 
+    <div class="grid gap-6 sm:grid-cols-2">
 
-                    <div class="grid gap-6 sm:grid-cols-2">
+        {{-- State --}}
+        <div>
 
-                        {{-- Region --}}
-                        <div>
+            <label
+                for="state"
+                class="mb-2 block text-sm font-semibold text-slate-800"
+            >
+                State
+                <span class="text-red-600">*</span>
+            </label>
 
-                            <label
-                                for="region"
-                                class="mb-2 block text-sm font-semibold text-slate-800"
-                            >
-                                Region
-                                <span class="text-red-600">*</span>
-                            </label>
+            <input
+                id="state"
+                type="text"
+                name="state"
+                value="{{ old('state') }}"
+                maxlength="100"
+                placeholder="e.g. Delhi"
+                required
+                class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-100"
+            >
 
-                            <input
-                                id="region"
-                                type="text"
-                                name="region"
-                                value="{{ old('region') }}"
-                                maxlength="100"
-                                placeholder="e.g. Rajasthan"
-                                required
-                                class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-100"
-                            >
+            @error('state')
+                <p class="mt-2 text-sm text-red-600">
+                    {{ $message }}
+                </p>
+            @enderror
 
-                            @error('region')
-                                <p class="mt-2 text-sm text-red-600">
-                                    {{ $message }}
-                                </p>
-                            @enderror
+        </div>
 
-                        </div>
+        {{-- City --}}
+        <div>
 
+            <label
+                for="city"
+                class="mb-2 block text-sm font-semibold text-slate-800"
+            >
+                City
+                <span class="text-red-600">*</span>
+            </label>
 
-                        {{-- Locality --}}
-                        <div>
+            <input
+                id="city"
+                type="text"
+                name="city"
+                value="{{ old('city') }}"
+                maxlength="100"
+                placeholder="e.g. Delhi"
+                required
+                class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-100"
+            >
 
-                            <label
-                                for="locality"
-                                class="mb-2 block text-sm font-semibold text-slate-800"
-                            >
-                                Locality
-                                <span class="text-red-600">*</span>
-                            </label>
+            @error('city')
+                <p class="mt-2 text-sm text-red-600">
+                    {{ $message }}
+                </p>
+            @enderror
 
-                            <input
-                                id="locality"
-                                type="text"
-                                name="locality"
-                                value="{{ old('locality') }}"
-                                maxlength="100"
-                                placeholder="e.g. Civil Lines"
-                                required
-                                class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-100"
-                            >
+        </div>
 
-                            @error('locality')
-                                <p class="mt-2 text-sm text-red-600">
-                                    {{ $message }}
-                                </p>
-                            @enderror
+        {{-- Locality --}}
+        <div>
 
-                        </div>
+            <label
+                for="locality"
+                class="mb-2 block text-sm font-semibold text-slate-800"
+            >
+                Locality
+                <span class="text-red-600">*</span>
+            </label>
 
-                    </div>
+            <input
+                id="locality"
+                type="text"
+                name="locality"
+                value="{{ old('locality') }}"
+                maxlength="150"
+                placeholder="e.g. Mayur Vihar Phase 3"
+                required
+                class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-100"
+            >
 
-                </div>
+            @error('locality')
+                <p class="mt-2 text-sm text-red-600">
+                    {{ $message }}
+                </p>
+            @enderror
+
+        </div>
+
+        {{-- Pincode --}}
+        <div>
+
+            <label
+                for="pincode"
+                class="mb-2 block text-sm font-semibold text-slate-800"
+            >
+                Pincode
+                <span class="text-slate-400">(optional)</span>
+            </label>
+
+            <input
+                id="pincode"
+                type="text"
+                name="pincode"
+                value="{{ old('pincode') }}"
+                maxlength="10"
+                inputmode="numeric"
+                placeholder="e.g. 110096"
+                class="block w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-100"
+            >
+
+            @error('pincode')
+                <p class="mt-2 text-sm text-red-600">
+                    {{ $message }}
+                </p>
+            @enderror
+
+        </div>
+
+    </div>
+
+</div> 
 
             </div>
 

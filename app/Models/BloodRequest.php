@@ -11,6 +11,7 @@ class BloodRequest extends Model
     protected $fillable = [
         'requester_id',
         'blood_group_id',
+        'location_id',
         'required_quantity',
         'fulfilled_quantity',
         'required_date',
@@ -47,6 +48,13 @@ class BloodRequest extends Model
             'blood_group_id'
         );
     }
+    public function location(): BelongsTo
+{
+    return $this->belongsTo(
+        Location::class,
+        'location_id'
+    );
+}
 
     /**
      * Responses from users who want to help.

@@ -5,8 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\BloodGroup;
 use App\Models\Location;
 use App\Models\Profile;
+use App\Services\Location\GeocodingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 class ProfileController extends Controller
 {
@@ -29,8 +31,10 @@ class ProfileController extends Controller
     /**
      * Store a new profile.
      */
-    public function store(Request $request)
-    {
+    public function store(
+        Request $request,
+        GeocodingService $geocodingService
+    ) {
         $user = $request->user();
 
         abort_if(
@@ -73,16 +77,46 @@ class ProfileController extends Controller
             ],
         ]);
 
-        DB::transaction(function () use ($user, $validated) {
+        try {
+            $coordinates = $geocodingService->geocode(
+                $validated['state'],
+                $validated['city'],
+                $validated['locality'],
+                $validated['pincode'] ?? null
+            );
+        } catch (RuntimeException $e) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'locality' => $e->getMessage(),
+                ]);
+        }
 
+        DB::transaction(function () use ($user, $validated, $coordinates) {
             $location = Location::create([
                 'state' => $validated['state'],
                 'city' => $validated['city'],
                 'locality' => $validated['locality'],
                 'pincode' => $validated['pincode'] ?? null,
-                'latitude' => null,
-                'longitude' => null,
+                'latitude' => $coordinates['latitude'],
+                'longitude' => $coordinates['longitude'],
             ]);
+
+            DB::statement(
+                '
+            UPDATE locations
+            SET coordinates = ST_SetSRID(
+                ST_MakePoint(?, ?),
+                4326
+            )::geography
+            WHERE id = ?
+            ',
+                [
+                    $coordinates['longitude'],
+                    $coordinates['latitude'],
+                    $location->id,
+                ]
+            );
 
             Profile::create([
                 'user_id' => $user->id,
@@ -99,7 +133,6 @@ class ProfileController extends Controller
                 'Your profile has been created successfully.'
             );
     }
-
     /**
      * Show the profile edit form.
      */
@@ -127,7 +160,7 @@ class ProfileController extends Controller
     /**
      * Update the authenticated user's profile.
      */
-    public function update(Request $request)
+    public function update(Request $request, GeocodingService $geocodingService)
     {
         $user = $request->user();
 
@@ -174,9 +207,21 @@ class ProfileController extends Controller
                 'max:10',
             ],
         ]);
-
-        DB::transaction(function () use ($profile, $validated) {
-
+        try {
+            $coordinates = $geocodingService->geocode(
+                $validated['state'],
+                $validated['city'],
+                $validated['locality'],
+                $validated['pincode'] ?? null
+            );
+        } catch (RuntimeException $e) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'locality' => $e->getMessage(),
+                ]);
+        }
+        DB::transaction(function () use ($profile, $validated, $coordinates) {
             $profile->update([
                 'phone' => $validated['phone'],
                 'blood_group_id' => $validated['blood_group_id'],
@@ -187,7 +232,25 @@ class ProfileController extends Controller
                 'city' => $validated['city'],
                 'locality' => $validated['locality'],
                 'pincode' => $validated['pincode'] ?? null,
+                'latitude' => $coordinates['latitude'],
+                'longitude' => $coordinates['longitude'],
             ]);
+
+            DB::statement(
+                '
+        UPDATE locations
+        SET coordinates = ST_SetSRID(
+            ST_MakePoint(?, ?),
+            4326
+        )::geography
+        WHERE id = ?
+        ',
+                [
+                    $coordinates['longitude'],
+                    $coordinates['latitude'],
+                    $profile->location->id,
+                ]
+            );
         });
 
         return redirect()

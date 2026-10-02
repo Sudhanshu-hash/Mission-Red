@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Location extends Model
@@ -25,4 +26,11 @@ class Location extends Model
     {
         return $this->hasOne(Profile::class);
     }
+    public function bloodRequests(): HasMany
+{
+    return $this->hasMany(
+        BloodRequest::class,
+        'location_id'
+    );
+}
 }

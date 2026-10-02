@@ -5,10 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\BloodGroup;
 use App\Models\BloodRequest;
 use App\Models\BloodRequestResponse;
+use App\Models\Location;
+use App\Services\Location\GeocodingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use RuntimeException;
 
 class BloodRequestController extends Controller
 {
@@ -28,8 +31,10 @@ class BloodRequestController extends Controller
     /**
      * Store a new blood request.
      */
-    public function store(Request $request): RedirectResponse
-    {
+    public function store(
+        Request $request,
+        GeocodingService $geocodingService
+    ): RedirectResponse {
         $validated = $request->validate([
             'blood_group_id' => [
                 'required',
@@ -54,7 +59,13 @@ class BloodRequestController extends Controller
                 'in:normal,urgent,critical',
             ],
 
-            'region' => [
+            'state' => [
+                'required',
+                'string',
+                'max:100',
+            ],
+
+            'city' => [
                 'required',
                 'string',
                 'max:100',
@@ -65,19 +76,81 @@ class BloodRequestController extends Controller
                 'string',
                 'max:150',
             ],
+
+            'pincode' => [
+                'nullable',
+                'string',
+                'max:10',
+            ],
         ]);
 
-        $bloodRequest = BloodRequest::create([
-            'requester_id' => $request->user()->id,
-            'blood_group_id' => $validated['blood_group_id'],
-            'required_quantity' => $validated['required_quantity'],
-            'fulfilled_quantity' => 0,
-            'required_date' => $validated['required_date'],
-            'urgency' => $validated['urgency'],
-            'region' => $validated['region'],
-            'locality' => $validated['locality'],
-            'status' => 'active',
-        ]);
+        /*
+         * Convert the request location into coordinates.
+         */
+        try {
+            $coordinates = $geocodingService->geocode(
+                $validated['state'],
+                $validated['city'],
+                $validated['locality'],
+                $validated['pincode'] ?? null
+            );
+        } catch (RuntimeException $e) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'locality' => $e->getMessage(),
+                ]);
+        }
+
+        DB::transaction(function () use (
+            $request,
+            $validated,
+            $coordinates
+        ) {
+            /*
+             * Create the location where blood is needed.
+             */
+            $location = Location::create([
+                'state' => $validated['state'],
+                'city' => $validated['city'],
+                'locality' => $validated['locality'],
+                'pincode' => $validated['pincode'] ?? null,
+                'latitude' => $coordinates['latitude'],
+                'longitude' => $coordinates['longitude'],
+            ]);
+
+            /*
+             * Store the PostGIS geography point.
+             *
+             * POINT uses:
+             * X = longitude
+             * Y = latitude
+             */
+            $this->setLocationCoordinates(
+                $location->id,
+                $coordinates['latitude'],
+                $coordinates['longitude']
+            );
+
+            /*
+             * Create the blood request.
+             *
+             * region/locality are retained temporarily for
+             * compatibility with existing requests and filters.
+             */
+            BloodRequest::create([
+                'requester_id' => $request->user()->id,
+                'blood_group_id' => $validated['blood_group_id'],
+                'location_id' => $location->id,
+                'required_quantity' => $validated['required_quantity'],
+                'fulfilled_quantity' => 0,
+                'required_date' => $validated['required_date'],
+                'urgency' => $validated['urgency'],
+                'region' => $validated['state'],
+                'locality' => $validated['locality'],
+                'status' => 'active',
+            ]);
+        });
 
         return redirect()
             ->route('dashboard')
@@ -93,8 +166,14 @@ class BloodRequestController extends Controller
     public function index(Request $request): View
     {
         $bloodRequests = BloodRequest::query()
-            ->where('requester_id', $request->user()->id)
-            ->with('bloodGroup')
+            ->where(
+                'requester_id',
+                $request->user()->id
+            )
+            ->with([
+                'bloodGroup',
+                'location',
+            ])
             ->latest()
             ->paginate(10);
 
@@ -108,118 +187,264 @@ class BloodRequestController extends Controller
      * Discover active blood requests from the community.
      *
      * The authenticated user can see:
+     *
      * 1. Their own active requests separately.
      * 2. All other active community requests.
      *
      * Blood group does not restrict visibility.
      */
-    public function discover(Request $request): View
-    {
+   public function discover(Request $request): View
+{
+    /*
+     * ---------------------------------------------------------
+     * YOUR ACTIVE REQUESTS
+     * ---------------------------------------------------------
+     */
+    $myRequests = BloodRequest::query()
+        ->where(
+            'requester_id',
+            auth()->id()
+        )
+        ->where('status', 'active')
+        ->whereDate(
+            'required_date',
+            '>=',
+            today()
+        )
+        ->with([
+            'bloodGroup',
+            'location',
+            'responses',
+        ])
+        ->latest()
+        ->get();
+
+    /*
+     * ---------------------------------------------------------
+     * USER LOCATION
+     * ---------------------------------------------------------
+     *
+     * Discovery distance is calculated from the authenticated
+     * user's profile location.
+     */
+    $user = $request->user();
+
+    $user->loadMissing('profile.location');
+
+    $profileLocation = $user->profile?->location;
+
+    /*
+     * ---------------------------------------------------------
+     * RADIUS
+     * ---------------------------------------------------------
+     *
+     * Default: 10 km
+     *
+     * "all" removes the radius restriction while still
+     * calculating distance when the user's location exists.
+     */
+    $radius = $request->input('radius', '10');
+
+    $allowedRadii = [
+        '2' => 2_000,
+        '5' => 5_000,
+        '10' => 10_000,
+        '25' => 25_000,
+        '50' => 50_000,
+        '100' => 100_000,
+    ];
+
+    $radiusMeters = $allowedRadii[$radius] ?? null;
+
+    /*
+     * ---------------------------------------------------------
+     * COMMUNITY REQUESTS
+     * ---------------------------------------------------------
+     */
+    $query = BloodRequest::query()
+        ->where(
+            'requester_id',
+            '!=',
+            auth()->id()
+        )
+        ->where('status', 'active')
+        ->whereDate(
+            'required_date',
+            '>=',
+            today()
+        )
+        ->with([
+            'bloodGroup',
+            'location',
+
+            /*
+             * Load only the authenticated user's response.
+             */
+            'responses' => function ($query) {
+                $query->where(
+                    'user_id',
+                    auth()->id()
+                );
+            },
+        ]);
+
+    /*
+     * ---------------------------------------------------------
+     * POSTGIS DISTANCE
+     * ---------------------------------------------------------
+     *
+     * Calculate distance between:
+     *
+     * User profile location
+     *          ↓
+     * Blood request location
+     *
+     * ST_Distance() returns meters because coordinates
+     * are stored as geography(Point, 4326).
+     */
+    if ($profileLocation) {
+
+        $latitude = (float) $profileLocation->latitude;
+        $longitude = (float) $profileLocation->longitude;
+
+        $userPoint = "
+            ST_SetSRID(
+                ST_MakePoint(?, ?),
+                4326
+            )::geography
+        ";
+
         /*
-         * ---------------------------------------------------------
-         * YOUR ACTIVE REQUESTS
-         * ---------------------------------------------------------
+         * Add distance_km to every result.
          */
-        $myRequests = BloodRequest::query()
-            ->where('requester_id', auth()->id())
-            ->where('status', 'active')
-            ->whereDate('required_date', '>=', today())
-            ->with([
-                'bloodGroup',
-                'responses',
-            ])
-            ->latest()
-            ->get();
-
+        $query
+            ->join(
+                'locations as request_location',
+                'request_location.id',
+                '=',
+                'blood_requests.location_id'
+            )
+            ->select('blood_requests.*')
+            ->selectRaw(
+                "
+                ST_Distance(
+                    request_location.coordinates,
+                    {$userPoint}
+                ) / 1000.0 AS distance_km
+                ",
+                [
+                    $longitude,
+                    $latitude,
+                ]
+            );
 
         /*
-         * ---------------------------------------------------------
-         * COMMUNITY REQUESTS
-         * ---------------------------------------------------------
-         */
-        $query = BloodRequest::query()
-            ->where('requester_id', '!=', auth()->id())
-            ->where('status', 'active')
-            ->whereDate('required_date', '>=', today())
-            ->with([
-                'bloodGroup',
-
-                /*
-                 * Load only the authenticated user's response.
-                 * This allows the UI to know whether this user
-                 * has already responded to the request.
-                 */
-                'responses' => function ($query) {
-                    $query->where(
-                        'user_id',
-                        auth()->id()
-                    );
-                },
-            ]);
-
-
-        /*
-         * ---------------------------------------------------------
-         * FILTERS
-         * ---------------------------------------------------------
-         */
-
-        // Blood group
-        if ($request->filled('blood_group_id')) {
-            $query->where(
-                'blood_group_id',
-                $request->input('blood_group_id')
-            );
-        }
-
-        // Urgency
-        if ($request->filled('urgency')) {
-            $query->where(
-                'urgency',
-                $request->input('urgency')
-            );
-        }
-
-        // Region
-        if ($request->filled('region')) {
-            $query->where(
-                'region',
-                'like',
-                '%' . $request->input('region') . '%'
-            );
-        }
-
-        // Locality
-        if ($request->filled('locality')) {
-            $query->where(
-                'locality',
-                'like',
-                '%' . $request->input('locality') . '%'
-            );
-        }
-
-        // Minimum remaining quantity
-        if ($request->filled('min_quantity')) {
-            $minQuantity = max(
-                1,
-                (int) $request->input('min_quantity')
-            );
-
-            $query->whereRaw(
-                '(required_quantity - fulfilled_quantity) >= ?',
-                [$minQuantity]
-            );
-        }
-
-
-        /*
-         * ---------------------------------------------------------
-         * SORTING
-         * ---------------------------------------------------------
+         * -----------------------------------------------------
+         * RADIUS FILTER
+         * -----------------------------------------------------
          *
-         * Critical → Urgent → Normal
+         * Only apply this when a specific radius was selected.
+         *
+         * "all" means no geographic restriction.
          */
-        $query->orderByRaw("
+        if ($radiusMeters !== null) {
+            $query->whereRaw(
+                "
+                ST_DWithin(
+                    request_location.coordinates,
+                    {$userPoint},
+                    ?
+                )
+                ",
+                [
+                    $longitude,
+                    $latitude,
+                    $radiusMeters,
+                ]
+            );
+        }
+
+    } else {
+
+        /*
+         * User has no profile location yet.
+         *
+         * Keep discovery functional, but distance cannot be
+         * calculated or radius-filtered.
+         */
+        $query->select('blood_requests.*');
+    }
+
+    /*
+     * ---------------------------------------------------------
+     * FILTERS
+     * ---------------------------------------------------------
+     */
+
+    // Blood group
+    if ($request->filled('blood_group_id')) {
+        $query->where(
+            'blood_group_id',
+            $request->input('blood_group_id')
+        );
+    }
+
+    // Urgency
+    if ($request->filled('urgency')) {
+        $query->where(
+            'urgency',
+            $request->input('urgency')
+        );
+    }
+
+    // Region
+    //
+    // Retained temporarily for compatibility with
+    // the existing discovery UI.
+    if ($request->filled('region')) {
+        $query->where(
+            'region',
+            'like',
+            '%' . $request->input('region') . '%'
+        );
+    }
+
+    // Locality
+    //
+    // Retained temporarily for compatibility with
+    // the existing discovery UI.
+    if ($request->filled('locality')) {
+        $query->where(
+            'locality',
+            'like',
+            '%' . $request->input('locality') . '%'
+        );
+    }
+
+    // Minimum remaining quantity
+    if ($request->filled('min_quantity')) {
+        $minQuantity = max(
+            1,
+            (int) $request->input('min_quantity')
+        );
+
+        $query->whereRaw(
+            '(required_quantity - fulfilled_quantity) >= ?',
+            [$minQuantity]
+        );
+    }
+
+    /*
+     * ---------------------------------------------------------
+     * SORTING
+     * ---------------------------------------------------------
+     *
+     * Keep the existing urgency priority.
+     *
+     * Within the same urgency level, show nearby requests
+     * first when the user's location is available.
+     */
+    $query->orderByRaw("
         CASE urgency
             WHEN 'critical' THEN 1
             WHEN 'urgent' THEN 2
@@ -228,36 +453,38 @@ class BloodRequestController extends Controller
         END
     ");
 
-        $query->latest();
-
-
-        /*
-         * ---------------------------------------------------------
-         * PAGINATION
-         * ---------------------------------------------------------
-         */
-        $communityRequests = $query
-            ->paginate(12)
-            ->withQueryString();
-
-
-        /*
-         * ---------------------------------------------------------
-         * BLOOD GROUPS FOR FILTER
-         * ---------------------------------------------------------
-         */
-        $bloodGroups = BloodGroup::orderBy('name')->get();
-
-
-        return view(
-            'blood-requests.discover',
-            compact(
-                'myRequests',
-                'communityRequests',
-                'bloodGroups'
-            )
-        );
+    if ($profileLocation) {
+        $query->orderByRaw('distance_km ASC');
     }
+
+    $query->latest('blood_requests.created_at');
+
+    /*
+     * ---------------------------------------------------------
+     * PAGINATION
+     * ---------------------------------------------------------
+     */
+    $communityRequests = $query
+        ->paginate(12)
+        ->withQueryString();
+
+    /*
+     * ---------------------------------------------------------
+     * BLOOD GROUPS FOR FILTER
+     * ---------------------------------------------------------
+     */
+    $bloodGroups = BloodGroup::orderBy('name')->get();
+
+    return view(
+        'blood-requests.discover',
+        compact(
+            'myRequests',
+            'communityRequests',
+            'bloodGroups',
+            'radius'
+        )
+    );
+}
 
     /**
      * Display a single blood request.
@@ -270,6 +497,8 @@ class BloodRequestController extends Controller
         $bloodRequest->load([
             'bloodGroup',
             'requester',
+            'location',
+            'responses',
         ]);
 
         return view(
@@ -290,6 +519,8 @@ class BloodRequestController extends Controller
 
         $bloodGroups = BloodGroup::orderBy('name')->get();
 
+        $bloodRequest->load('location');
+
         return view(
             'blood-requests.edit',
             compact(
@@ -304,9 +535,9 @@ class BloodRequestController extends Controller
      */
     public function update(
         Request $request,
-        BloodRequest $bloodRequest
+        BloodRequest $bloodRequest,
+        GeocodingService $geocodingService
     ): RedirectResponse {
-
         abort_unless(
             $bloodRequest->requester_id === auth()->id(),
             403
@@ -351,7 +582,13 @@ class BloodRequestController extends Controller
                 'in:normal,urgent,critical',
             ],
 
-            'region' => [
+            'state' => [
+                'required',
+                'string',
+                'max:100',
+            ],
+
+            'city' => [
                 'required',
                 'string',
                 'max:100',
@@ -361,6 +598,12 @@ class BloodRequestController extends Controller
                 'required',
                 'string',
                 'max:150',
+            ],
+
+            'pincode' => [
+                'nullable',
+                'string',
+                'max:10',
             ],
         ]);
 
@@ -380,14 +623,86 @@ class BloodRequestController extends Controller
                 ->withInput();
         }
 
-        $bloodRequest->update([
-            'blood_group_id' => $validated['blood_group_id'],
-            'required_quantity' => $validated['required_quantity'],
-            'required_date' => $validated['required_date'],
-            'urgency' => $validated['urgency'],
-            'region' => $validated['region'],
-            'locality' => $validated['locality'],
-        ]);
+        /*
+         * Geocode the updated request location.
+         */
+        try {
+            $coordinates = $geocodingService->geocode(
+                $validated['state'],
+                $validated['city'],
+                $validated['locality'],
+                $validated['pincode'] ?? null
+            );
+        } catch (RuntimeException $e) {
+            return back()
+                ->withInput()
+                ->withErrors([
+                    'locality' => $e->getMessage(),
+                ]);
+        }
+
+        DB::transaction(function () use (
+            $bloodRequest,
+            $validated,
+            $coordinates
+        ) {
+            /*
+             * Update the existing location when available.
+             *
+             * For an older request that does not yet have a
+             * location_id, create its first location record.
+             */
+            if ($bloodRequest->location_id) {
+                $location = $bloodRequest->location;
+
+                $location->update([
+                    'state' => $validated['state'],
+                    'city' => $validated['city'],
+                    'locality' => $validated['locality'],
+                    'pincode' => $validated['pincode'] ?? null,
+                    'latitude' => $coordinates['latitude'],
+                    'longitude' => $coordinates['longitude'],
+                ]);
+            } else {
+                $location = Location::create([
+                    'state' => $validated['state'],
+                    'city' => $validated['city'],
+                    'locality' => $validated['locality'],
+                    'pincode' => $validated['pincode'] ?? null,
+                    'latitude' => $coordinates['latitude'],
+                    'longitude' => $coordinates['longitude'],
+                ]);
+
+                $bloodRequest->location_id = $location->id;
+            }
+
+            /*
+             * Update the PostGIS geography point.
+             */
+            $this->setLocationCoordinates(
+                $location->id,
+                $coordinates['latitude'],
+                $coordinates['longitude']
+            );
+
+            /*
+             * Update the blood request.
+             */
+            $bloodRequest->update([
+                'blood_group_id' => $validated['blood_group_id'],
+                'required_quantity' => $validated['required_quantity'],
+                'required_date' => $validated['required_date'],
+                'urgency' => $validated['urgency'],
+
+                /*
+                 * Legacy fields retained temporarily.
+                 */
+                'region' => $validated['state'],
+                'locality' => $validated['locality'],
+
+                'location_id' => $location->id,
+            ]);
+        });
 
         return redirect()
             ->route(
@@ -406,7 +721,6 @@ class BloodRequestController extends Controller
     public function destroy(
         BloodRequest $bloodRequest
     ): RedirectResponse {
-
         abort_unless(
             $bloodRequest->requester_id === auth()->id(),
             403
@@ -449,7 +763,6 @@ class BloodRequestController extends Controller
         Request $request,
         BloodRequest $bloodRequest
     ): RedirectResponse {
-
         /*
          * A requester cannot respond to their own request.
          */
@@ -582,7 +895,6 @@ class BloodRequestController extends Controller
     public function responses(
         BloodRequest $bloodRequest
     ): View {
-
         abort_unless(
             $bloodRequest->requester_id === auth()->id(),
             403
@@ -625,16 +937,18 @@ class BloodRequestController extends Controller
         }
 
         $validated = $request->validate([
-            'status' => ['required', 'in:accepted,rejected'],
+            'status' => [
+                'required',
+                'in:accepted,rejected',
+            ],
         ]);
 
         /*
-        |--------------------------------------------------------------------------
-        | Reject response
-        |--------------------------------------------------------------------------
-        */
+         * ---------------------------------------------------------
+         * Reject response
+         * ---------------------------------------------------------
+         */
         if ($validated['status'] === 'rejected') {
-
             $response->update([
                 'status' => 'rejected',
                 'reviewed_at' => now(),
@@ -647,42 +961,40 @@ class BloodRequestController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | Accept response
-        |--------------------------------------------------------------------------
-        */
-        DB::transaction(function () use ($bloodRequest, $response) {
-
+         * ---------------------------------------------------------
+         * Accept response
+         * ---------------------------------------------------------
+         */
+        DB::transaction(function () use (
+            $bloodRequest,
+            $response
+        ) {
             /*
-            |--------------------------------------------------------------------------
-            | Lock the blood request row
-            |--------------------------------------------------------------------------
-            | This prevents two simultaneous acceptances from calculating the
-            | remaining quantity from the same old value.
-            */
+             * Lock the blood request row.
+             *
+             * This prevents two simultaneous acceptances from
+             * calculating the remaining quantity from the same
+             * old value.
+             */
             $bloodRequest = BloodRequest::query()
                 ->lockForUpdate()
                 ->findOrFail($bloodRequest->id);
 
             /*
-            |--------------------------------------------------------------------------
-            | Re-check response status inside the transaction
-            |--------------------------------------------------------------------------
-            */
+             * Re-check response status inside the transaction.
+             */
             $response->refresh();
 
             if ($response->status !== 'pending') {
-                throw new \RuntimeException(
+                throw new RuntimeException(
                     'This response has already been reviewed.'
                 );
             }
 
             /*
-            |--------------------------------------------------------------------------
-            | Help-to-arrange without quantity
-            |--------------------------------------------------------------------------
-            | It can be accepted, but it does not fulfill blood units.
-            */
+             * Help-to-arrange without quantity can be accepted,
+             * but it does not fulfill blood units.
+             */
             if (
                 $response->response_type === 'arrange'
                 && !$response->quantity
@@ -696,10 +1008,8 @@ class BloodRequestController extends Controller
             }
 
             /*
-            |--------------------------------------------------------------------------
-            | Calculate remaining quantity
-            |--------------------------------------------------------------------------
-            */
+             * Calculate remaining quantity.
+             */
             $remainingQuantity = max(
                 0,
                 $bloodRequest->required_quantity
@@ -707,38 +1017,31 @@ class BloodRequestController extends Controller
             );
 
             /*
-            |--------------------------------------------------------------------------
-            | Make sure this response does not exceed the remaining requirement
-            |--------------------------------------------------------------------------
-            */
+             * Make sure this response does not exceed the
+             * remaining requirement.
+             */
             if ($response->quantity > $remainingQuantity) {
-                throw new \RuntimeException(
+                throw new RuntimeException(
                     'This response exceeds the remaining required quantity.'
                 );
             }
 
             /*
-            |--------------------------------------------------------------------------
-            | Accept response
-            |--------------------------------------------------------------------------
-            */
+             * Accept response.
+             */
             $response->update([
                 'status' => 'accepted',
                 'reviewed_at' => now(),
             ]);
 
             /*
-            |--------------------------------------------------------------------------
-            | Add fulfilled quantity
-            |--------------------------------------------------------------------------
-            */
+             * Add fulfilled quantity.
+             */
             $bloodRequest->fulfilled_quantity += $response->quantity;
 
             /*
-            |--------------------------------------------------------------------------
-            | Close request when fully fulfilled
-            |--------------------------------------------------------------------------
-            */
+             * Close request when fully fulfilled.
+             */
             if (
                 $bloodRequest->fulfilled_quantity
                 >= $bloodRequest->required_quantity
@@ -756,6 +1059,31 @@ class BloodRequestController extends Controller
         return back()->with(
             'success',
             'Response accepted successfully.'
+        );
+    }
+
+    /**
+     * Set the PostGIS coordinates for a location.
+     */
+    private function setLocationCoordinates(
+        int $locationId,
+        float $latitude,
+        float $longitude
+    ): void {
+        DB::statement(
+            '
+            UPDATE locations
+            SET coordinates = ST_SetSRID(
+                ST_MakePoint(?, ?),
+                4326
+            )::geography
+            WHERE id = ?
+            ',
+            [
+                $longitude,
+                $latitude,
+                $locationId,
+            ]
         );
     }
 }
