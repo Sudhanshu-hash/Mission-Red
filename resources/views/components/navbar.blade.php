@@ -24,15 +24,15 @@
                     Home
                 </a>
 
-                {{-- Requests  --}}
+                {{-- Requests --}}
                 <a href="{{ route('blood-requests.create') }}"
                     class="rounded-lg px-4 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-100">
                     Requests
                 </a>
-                
+
 
                 {{-- Donate --}}
-                 <a href="{{ route('blood-requests.discover') }}"
+                <a href="{{ route('blood-requests.discover') }}"
                     class="rounded-lg px-4 py-2 text-sm font-medium text-slate-900 transition hover:bg-slate-100">
                     Donate
                 </a>
@@ -65,7 +65,7 @@
 
 
                 {{-- User / Profile --}}
-                <a href="{{ route('profile.edit') }}"
+                <a href="{{ route('profile.show') }}"
                     class="group flex items-center gap-3 border-l border-slate-200 pl-4" aria-label="Edit Profile">
                     <div class="hidden text-right lg:block">
                         <p class="text-sm font-semibold text-slate-900 group-hover:text-red-600">
@@ -83,6 +83,18 @@
                         {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
                     </div>
                 </a>
+                {{-- Notifications --}}
+                <button type="button"
+                    class="relative flex h-10 w-10 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+                    aria-label="Setting">
+                    <svg xmlns="http://w3.org" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path
+                            d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a202 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                        <circle cx="12" cy="12" r="3" />
+                    </svg>
+
+                </button>
 
                 {{-- Logout --}}
                 <form method="POST" action="{{ route('logout') }}">
@@ -148,15 +160,15 @@
                 </a>
 
 
-               <a href="{{ route('blood-requests.create') }}"
+                <a href="{{ route('blood-requests.create') }}"
                     class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-900 hover:bg-slate-50">
                     Requests
                 </a>
 
-                    
-                    
 
-                 <a href="{{ route('blood-requests.discover') }}"
+
+
+                <a href="{{ route('blood-requests.discover') }}"
                     class="block rounded-xl px-3 py-2.5 text-sm font-medium text-slate-900 hover:bg-slate-50">
                     Donate
                 </a>

@@ -14,8 +14,50 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
-        $profile = $user->profile;
+$profile = $user->profile()
+    ->with(['bloodGroup', 'location'])
+    ->first();
 
+/*
+ * ---------------------------------------------------------
+ * PROFILE COMPLETION
+ * ---------------------------------------------------------
+ */
+
+$profileCompletion = 0;
+
+if ($profile !== null) {
+
+    // Basic account information
+    if (
+        filled($user->name) &&
+        filled($user->email)
+    ) {
+        $profileCompletion += 25;
+    }
+
+    // Blood group
+    if ($profile->blood_group_id !== null) {
+        $profileCompletion += 25;
+    }
+
+    // Location
+    if (
+        $profile->location !== null &&
+        filled($profile->location->state) &&
+        filled($profile->location->city) &&
+        filled($profile->location->locality) &&
+        filled($profile->location->latitude) &&
+        filled($profile->location->longitude)
+    ) {
+        $profileCompletion += 40;
+    }
+
+    // Phone
+    if (filled($profile->phone)) {
+        $profileCompletion += 10;
+    }
+}
         /*
          * ---------------------------------------------------------
          * ACTIVE REQUEST
@@ -63,13 +105,14 @@ class DashboardController extends Controller
             ->where('status', 'fulfilled')
             ->count();
 
-        return view('dashboard', [
-            'user' => $user,
-            'profile' => $profile,
-            'activeRequest' => $activeRequest,
-            'activeRequestCount' => $activeRequestCount,
-            'donorResponseCount' => $donorResponseCount,
-            'completedRequestCount' => $completedRequestCount,
-        ]);
+       return view('dashboard', [
+    'user' => $user,
+    'profile' => $profile,
+    'profileCompletion' => $profileCompletion,
+    'activeRequest' => $activeRequest,
+    'activeRequestCount' => $activeRequestCount,
+    'donorResponseCount' => $donorResponseCount,
+    'completedRequestCount' => $completedRequestCount,
+]);
     }
 }
