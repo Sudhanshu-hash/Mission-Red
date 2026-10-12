@@ -37,10 +37,23 @@ Route::post('/reset-password', [ResetPasswordController::class, 'store'])->name(
 */
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/profile/create', [ProfileController::class, 'create'])->name('profile.create');
-    Route::post('/profile', [ProfileController::class, 'store'])->name('profile.store');
-    Route::get('/profile/edit', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
+
+    Route::get('/profile', [ProfileController::class, 'show'])
+        ->name('profile.show');
+
+    Route::get('/profile/create', [ProfileController::class, 'create'])
+        ->name('profile.create');
+
+    Route::post('/profile', [ProfileController::class, 'store'])
+        ->name('profile.store');
+
+    Route::get('/profile/edit', [ProfileController::class, 'edit'])
+        ->name('profile.edit');
+
+    Route::put('/profile', [ProfileController::class, 'update'])
+        ->name('profile.update');
+        Route::patch('/profile/privacy', [ProfileController::class, 'updatePrivacy'])
+    ->name('profile.privacy.update');
     /*
     |--------------------------------------------------------------------------
     | Blood Requests

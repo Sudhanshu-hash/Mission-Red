@@ -4,8 +4,18 @@
 
 @section('content')
 
-    <section class="min-h-[calc(100vh-4rem)]  py-8 sm:py-10 lg:py-12">
-
+    <section class="min-h-[calc(100vh-4rem)] bg-slate-50 py-8 sm:py-10 lg:py-12">
+ {{-- Background Video --}}
+    <!-- <video
+        autoplay
+        muted
+        loop
+        playsinline
+        class="fixed inset-0 z-[-2] h-full w-full object-cover"
+    >
+        <source src="{{ asset('assets/index.mp4') }}" type="video/mp4">
+        
+    </video> -->
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
             {{-- =========================================================
@@ -18,7 +28,7 @@
                         Dashboard
                     </p> -->
 
-                    <h1 class="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                    <h1 class="text-3xl font-bold tracking-tight text-red-700 sm:text-4xl">
                         Good morning, {{ $user->name }}
                     </h1>
 
@@ -31,52 +41,180 @@
             </div>
 
 
-            {{-- =========================================================
-            PROFILE COMPLETION
-            ========================================================== --}}
-            @if (!$profile)
+        {{-- =========================================================
+PROFILE COMPLETION
+========================================================== --}}
 
-                <div class="mb-6 overflow-hidden rounded-2xl border border-red-100 bg-white">
+@if ($profileCompletion < 100)
 
-                    <div class="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+    <div class="mb-6 overflow-hidden rounded-2xl border border-red-100 bg-white shadow-sm">
 
-                        <div class="flex items-start gap-4">
+        <div class="p-5 sm:p-6">
 
-                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600">
+            <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
 
-                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8"
-                                    stroke="currentColor" class="h-5 w-5">
-                                    <path stroke-linecap="round" stroke-linejoin="round"
-                                        d="M15.75 6.75a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75a17.933 17.933 0 0 1-7.499-1.632Z" />
-                                </svg>
+                {{-- Icon + Content --}}
+                <div class="flex items-start gap-4">
 
-                            </div>
+                    <div
+                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600">
 
-                            <div>
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke-width="1.8"
+                            stroke="currentColor"
+                            class="h-5 w-5"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                d="M15.75 6.75a3.75 3.75 0 1 1-7.5 0
+                                3.75 3.75 0 0 1 7.5 0ZM4.501 20.118
+                                a7.5 7.5 0 0 1 14.998 0
+                                A17.933 17.933 0 0 1 12 21.75
+                                a17.933 17.933 0 0 1-7.499-1.632Z"
+                            />
+                        </svg>
 
-                                <h2 class="text-sm font-semibold text-slate-900">
-                                    Complete your profile
-                                </h2>
+                    </div>
 
-                                <p class="mt-1 max-w-xl text-sm leading-5 text-slate-500">
-                                    Add your blood group and location to start using
-                                    Mission Red.
-                                </p>
+                    <div class="min-w-0">
 
-                            </div>
+                        <div class="flex flex-wrap items-center gap-2">
+
+                            <h2 class="text-sm font-semibold text-slate-900">
+                                Complete your profile
+                            </h2>
+
+                            <span
+                                class="rounded-full bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-600"
+                            >
+                                {{ $profileCompletion }}%
+                            </span>
 
                         </div>
 
-                        <a href="{{ route('profile.create') }}"
-                            class="inline-flex items-center justify-center rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">
-                            Complete Profile
-                        </a>
+                        <p class="mt-1 max-w-xl text-sm leading-5 text-slate-500">
+
+                            @if ($profileCompletion < 60)
+                                Add your blood group and location to get the most out of Mission Red.
+                            @elseif ($profileCompletion < 100)
+                                Your profile is {{ $profileCompletion }}% complete.
+                                Complete the remaining details to enable distance-based discovery.
+                            @endif
+
+                        </p>
 
                     </div>
 
                 </div>
 
-            @endif
+                {{-- Edit Profile --}}
+                <a
+                    href="{{ route('profile.edit') }}"
+                    class="inline-flex shrink-0 items-center justify-center rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                >
+                    Complete Profile
+
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke-width="2"
+                        stroke="currentColor"
+                        class="ml-2 h-4 w-4"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"
+                        />
+                    </svg>
+
+                </a>
+
+            </div>
+
+            {{-- Progress Bar --}}
+            <div class="mt-5">
+
+                <div class="mb-2 flex items-center justify-between">
+
+                    <span class="text-xs font-medium text-slate-500">
+                        Profile completion
+                    </span>
+
+                    <span class="text-xs font-semibold text-slate-700">
+                        {{ $profileCompletion }}%
+                    </span>
+
+                </div>
+
+                <div
+                    class="h-2 overflow-hidden rounded-full bg-slate-100"
+                    role="progressbar"
+                    aria-valuenow="{{ $profileCompletion }}"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    aria-label="Profile completion"
+                >
+                    <div
+                        class="h-full rounded-full bg-red-600 transition-all duration-500"
+                        style="width: {{ $profileCompletion }}%"
+                    ></div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+@elseif ($profileCompletion === 100)
+
+    {{-- Fully completed profile --}}
+    <div class="mb-6 rounded-2xl border border-green-100 bg-green-50/50 px-5 py-4 sm:px-6">
+
+        <div class="flex items-center gap-3">
+
+            <div
+                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-green-100 text-green-600"
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke-width="2"
+                    stroke="currentColor"
+                    class="h-5 w-5"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="m5 12 4 4L19 7"
+                    />
+                </svg>
+            </div>
+
+            <div>
+
+                <p class="text-sm font-semibold text-slate-900">
+                    Your profile is complete
+                </p>
+
+                <p class="mt-0.5 text-sm text-slate-500">
+                    Your location is ready for distance-based discovery.
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+@endif
 
 
             {{-- =========================================================

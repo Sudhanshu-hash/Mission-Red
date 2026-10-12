@@ -11,7 +11,7 @@
 </head>
 <body class="m-0 overflow-visible ">
 
-    {{-- Background Video --}}
+    <!-- {{-- Background Video --}}
     <video
         autoplay
         muted
@@ -21,7 +21,7 @@
     >
         <source src="{{ asset('assets/index.mp4') }}" type="video/mp4">
         
-    </video>
+    </video> -->
 
     {{-- Dark Overlay --}}
     <div class="fixed inset-0 z-[-1] bg-black/45"></div>
